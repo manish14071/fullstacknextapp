@@ -1,92 +1,99 @@
-"use client";
+'use client';
 
-import { zodResolver } from "@hookform/resolvers/zod";
-import Link from "next/link";
-import { useEffect, useState } from "react";
-import { useForm, SubmitHandler } from "react-hook-form";
-import * as z from "zod";
-import { useDebounceValue } from "usehooks-ts";
-import { useToast } from "@/hooks/use-toast";
+import { ApiResponse } from '@/types/ApiResponse';
+import { zodResolver } from '@hookform/resolvers/zod';
+import Link from 'next/link';
+import { useEffect, useState } from 'react';
+import { useForm } from 'react-hook-form';
+import { useDebounceCallback } from "usehooks-ts";
+import * as z from 'zod';
 
-import { signUpSchema } from "@/schemas/signUpSchema";
-import axios, { AxiosError } from "axios";
-import { ApiResponse } from "@/types/ApiResponse";
+import { Button } from '@/components/ui/button';
 import {
   Form,
-  FormControl,
-  FormDescription,
   FormField,
   FormItem,
   FormLabel,
-} from "@/components/ui/form";
-import { Input } from "@/components/ui/input";
-import { Button } from "@react-email/components";
-import { useRouter } from "next/navigation";
+  FormMessage,
+} from '@/components/ui/form';
+import { Input } from '@/components/ui/input';
+import { useToast } from "@/hooks/use-toast";
+import axios, { AxiosError } from 'axios';
+import { Loader2 } from 'lucide-react';
+import { useRouter } from 'next/navigation';
+import { signUpSchema } from '@/schemas/signUpSchema';
 
-const SignIn = () => {
-  const [username, setUsername] = useState("");
-  const [userNameMessage, setUsernameMessage] = useState("");
+export default function SignUpForm() {
+  const [username, setUsername] = useState('');
+  const [usernameMessage, setUsernameMessage] = useState('');
   const [isCheckingUsername, setIsCheckingUsername] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const debounced = useDebounceCallback(setUsername, 300);
 
-  const debouncedUSerName = useDebounceValue(username, 300);
-  const { toast } = useToast();
   const router = useRouter();
-
-  //zod implementation
+  const { toast } = useToast();
 
   const form = useForm<z.infer<typeof signUpSchema>>({
     resolver: zodResolver(signUpSchema),
     defaultValues: {
-      username: "",
-      email: "",
-      password: "",
+      username: '',
+      email: '',
+      password: '',
     },
   });
 
   useEffect(() => {
-    const checkUserNameUnique = async () => {
-      if (debouncedUSerName) {
+    const checkUsernameUnique = async () => {
+      if (username) {
         setIsCheckingUsername(true);
-        setUsernameMessage("");
+        setUsernameMessage(''); // Reset message
         try {
-          const response = await axios.get(
-            `/api/check-username-unique?username=${debouncedUSerName}`
+          const response = await axios.get<ApiResponse>(
+            `/api/check-username-unique?username=${username}`
           );
-
           setUsernameMessage(response.data.message);
         } catch (error) {
           const axiosError = error as AxiosError<ApiResponse>;
           setUsernameMessage(
-            axiosError.response?.data.message ?? "Error checking username"
+            axiosError.response?.data.message ?? 'Error checking username'
           );
         } finally {
           setIsCheckingUsername(false);
         }
       }
     };
-    checkUserNameUnique();
-  }, [debouncedUSerName]);
+    checkUsernameUnique();
+  }, [username]);
 
   const onSubmit = async (data: z.infer<typeof signUpSchema>) => {
     setIsSubmitting(true);
     try {
-      const response = await axios.post<ApiResponse>("/api/sign-up", data);
+      const response = await axios.post<ApiResponse>('/api/sign-up', data);
+
       toast({
-        title: "Success",
+        title: 'Success',
         description: response.data.message,
       });
+
       router.replace(`/verify/${username}`);
+
       setIsSubmitting(false);
     } catch (error) {
-      console.error("error in signup user");
+      console.error('Error during sign-up:', error);
+
       const axiosError = error as AxiosError<ApiResponse>;
-      const errorMessage = axiosError.response?.data.message;
+
+      // Default error message
+    const errorMessage = axiosError.response?.data.message;
+      ('There was a problem with your sign-up. Please try again.');
+
       toast({
-        title: "signup failed",
+        title: 'Sign Up Failed',
         description: errorMessage,
-        variant: "destructive",
+        variant: 'destructive',
       });
+
+      setIsSubmitting(false);
     }
   };
 
@@ -95,47 +102,50 @@ const SignIn = () => {
       <div className="w-full max-w-md p-8 space-y-8 bg-white rounded-lg shadow-md">
         <div className="text-center">
           <h1 className="text-4xl font-extrabold tracking-tight lg:text-5xl mb-6">
-            Welcome Back to True Feedback
+            Join True Feedback
           </h1>
+          <p className="mb-4">Sign up to start your anonymous adventure</p>
         </div>
-
         <Form {...form}>
-          <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
+          <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6 text-black">
             <FormField
               name="username"
               control={form.control}
               render={({ field }) => (
                 <FormItem>
                   <FormLabel>Username</FormLabel>
-                  <FormControl>
-                    <Input
-                      placeholder="Username"
-                      {...field}
-                      onChange={(e: any) => {
-                        field.onChange(e);
-                        setUsername(e.target.value);
-                      }}
-                    />
-                  </FormControl>
-                  <FormDescription>
-                    This is your public display name.
-                  </FormDescription>
+                  <Input
+                    {...field}
+                    onChange={(e) => {
+                      field.onChange(e);
+                      debounced(e.target.value);
+                    }}
+                  />
+                  {isCheckingUsername && <Loader2 className="animate-spin" />}
+                  {!isCheckingUsername && usernameMessage && (
+                    <p
+                      className={`text-sm ${
+                        usernameMessage === 'Username is unique'
+                          ? 'text-green-500'
+                          : 'text-red-500'
+                      }`}
+                    >
+                      {usernameMessage}
+                    </p>
+                  )}
+                  <FormMessage />
                 </FormItem>
               )}
             />
-
             <FormField
               name="email"
               control={form.control}
               render={({ field }) => (
                 <FormItem>
                   <FormLabel>Email</FormLabel>
-                  <FormControl>
-                    <Input placeholder="Email" {...field} />
-                  </FormControl>
-                  <FormDescription>
-                    This is your public display name.
-                  </FormDescription>
+                  <Input {...field} name="email" />
+                  <p className='text-muted text-gray-400 text-sm'>We will send you a verification code</p>
+                  <FormMessage />
                 </FormItem>
               )}
             />
@@ -146,33 +156,32 @@ const SignIn = () => {
               render={({ field }) => (
                 <FormItem>
                   <FormLabel>Password</FormLabel>
-                  <FormControl>
-                    <Input type="password" placeholder="Password" {...field} />
-                  </FormControl>
-                  <FormDescription>
-                    This is your public display name.
-                  </FormDescription>
+                  <Input type="password" {...field} name="password" />
+                  <FormMessage />
                 </FormItem>
               )}
             />
-
-            <Button className="w-full" type="submit">
-              signIn
+            <Button type="submit" className='w-full' disabled={isSubmitting}>
+              {isSubmitting ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  Please wait
+                </>
+              ) : (
+                'Sign Up'
+              )}
             </Button>
           </form>
         </Form>
-
         <div className="text-center mt-4">
           <p>
-            Not a member yet?{" "}
-            <Link href="/sign-up" className="text-blue-600 hover:text-blue-800">
-              Sign up
+            Already a member?{' '}
+            <Link href="/sign-in" className="text-blue-600 hover:text-blue-800">
+              Sign in
             </Link>
           </p>
         </div>
       </div>
     </div>
   );
-};
-
-export default SignIn;
+}

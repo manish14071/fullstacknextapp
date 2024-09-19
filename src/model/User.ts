@@ -6,7 +6,7 @@ export interface Message extends Document {
 }
 
 
-const MessageSchema: Schema<Message> = new Schema({
+const MessageSchema: Schema<Message> = new mongoose.Schema({
     content: {
         type: String,
         required: true
@@ -31,7 +31,7 @@ export interface User extends Document {
 }
 
 
-const UserSchema: Schema<User> = new Schema({
+const UserSchema: Schema<User> = new mongoose.Schema({
     username: {
         type: String,
         required: [true, "username is required"],

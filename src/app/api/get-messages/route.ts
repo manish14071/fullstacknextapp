@@ -1,9 +1,9 @@
+import dbConnect from "@/lib/dbConnect";
+import userModel from "@/model/User";
+import mongoose from "mongoose";
+import { User } from "next-auth";
 import { getServerSession } from "next-auth";
 import { authOptions } from "../auth/[...nextauth]/options";
-import userModel from "@/model/User";
-import { User } from "next-auth";
-import dbConnect from "@/lib/dbConnect";
-import mongoose from "mongoose";
 
 
 
@@ -12,8 +12,8 @@ export async function GET(request: Request) {
 
 
     const session = await getServerSession(authOptions)
-    const user: User = session?.user as User
-    if (!session || !session.user) {
+    const _user: User = session?.user 
+    if (!session || !_user) {
         return Response.json({
             success: false,
             message: "not auth"
@@ -21,25 +21,25 @@ export async function GET(request: Request) {
 
     }
 
-    const UserId = new mongoose.Types.ObjectId(user._id);
+    const userId = new mongoose.Types.ObjectId(_user._id);
 
     try {
 
         const user = await userModel.aggregate([
-            { $match: { id: UserId } },
+            { $match: { _id: userId } },
             { $unwind: '$messages' },
             { $sort: { 'messages.createdAt': -1 } },
             { $group: { _id: '$_id', messages: { $push: '$messages' } } }
 
 
 
-        ])
+        ]).exec();
 
         if (!user || user.length === 0) {
             return Response.json({
                 success: false,
                 message: "user not found"
-            }, { status: 401 })
+            }, { status: 404 })
         }
         return Response.json({
             success: true,
